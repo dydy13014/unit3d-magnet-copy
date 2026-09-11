@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tracker Magnet Auto-Copy (C411 / Tr4ker / V3X)
 // @namespace    unit3d-magnet-copy
-// @version      6.1
+// @version      1.0.0
 // @description  Quand tu cliques sur "Télécharger" sur C411, Tr4ker ou V3X, le script récupère le vrai .torrent (avec tracker/passkey), en extrait le magnet complet et le copie automatiquement dans le presse-papiers, SANS télécharger le fichier .torrent lui-même par défaut (plus de boîte de dialogue "Enregistrer sous" à chaque clic). Panneau flottant pour copier plusieurs magnets d'affilée (season packs), avec bouton optionnel pour envoyer un magnet à AllDebrid (jamais automatique) et bouton pour télécharger quand même le .torrent réel (utile au-delà de la limite ~100 Go d'AllDebrid, signalée dans le panneau).
 // @match        *://*.c411.org/*
 // @match        *://*.tr4ker.net/*
