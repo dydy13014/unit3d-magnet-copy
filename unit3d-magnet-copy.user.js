@@ -1,11 +1,12 @@
 // ==UserScript==
-// @name         Tracker Magnet Auto-Copy (C411 / Tr4ker / V3X)
+// @name         Tracker Magnet Auto-Copy (C411 / Tr4ker / V3X / FitGirl)
 // @namespace    unit3d-magnet-copy
-// @version      1.0.0
-// @description  Quand tu cliques sur "Télécharger" sur C411, Tr4ker ou V3X, le script récupère le vrai .torrent (avec tracker/passkey), en extrait le magnet complet et le copie automatiquement dans le presse-papiers, SANS télécharger le fichier .torrent lui-même par défaut (plus de boîte de dialogue "Enregistrer sous" à chaque clic). Panneau flottant pour copier plusieurs magnets d'affilée (season packs), avec bouton optionnel pour envoyer un magnet à AllDebrid (jamais automatique) et bouton pour télécharger quand même le .torrent réel (utile au-delà de la limite ~100 Go d'AllDebrid, signalée dans le panneau).
+// @version      1.1.0
+// @description  Sur C411, Tr4ker et V3X : au clic sur "Télécharger", récupère le vrai .torrent (avec tracker/passkey), en extrait le magnet complet et le copie automatiquement dans le presse-papiers, SANS télécharger le fichier .torrent lui-même par défaut (plus de boîte de dialogue "Enregistrer sous" à chaque clic). Sur FitGirl Repacks : copie directement le lien magnet déjà présent sur la page (pas d'extraction nécessaire). Panneau flottant pour copier plusieurs magnets d'affilée (season packs), avec bouton optionnel pour envoyer un magnet à AllDebrid (jamais automatique) et bouton pour télécharger quand même le .torrent réel (utile au-delà de la limite ~100 Go d'AllDebrid, signalée dans le panneau).
 // @match        *://*.c411.org/*
 // @match        *://*.tr4ker.net/*
 // @match        *://*.v3x.club/*
+// @match        *://*.fitgirl-repacks.site/*
 // @run-at       document-start
 // @grant        unsafeWindow
 // @grant        GM_setClipboard
@@ -51,6 +52,7 @@
     patchXHR();
     patchAnchorClick();
     watchRealLinkClicks();
+    watchMagnetLinks();
 
     // C411/Tr4ker déclenchent la sauvegarde du .torrent en créant (souvent à la
     // volée, hors DOM) un <a download="...torrent" href="blob:..."> puis en
@@ -151,6 +153,40 @@
                 .then(blob => finishEntry(entry, blob, link.href))
                 .catch(err => failEntry(entry, err, link.href));
         }, true);
+    }
+
+    // FitGirl Repacks (et tout site qui expose déjà un vrai <a href="magnet:...">) :
+    // rien à extraire, le magnet est déjà complet dans le href. On empêche juste le
+    // navigateur de tenter d'ouvrir un client torrent local (sans intérêt ici) et on
+    // copie directement le lien tel quel.
+    function watchMagnetLinks() {
+        document.addEventListener('click', evt => {
+            const link = evt.target.closest && evt.target.closest('a[href^="magnet:"]');
+            if (!link) return;
+            evt.preventDefault();
+            if (!shouldHandle(link.href)) return;
+
+            const entry = addPanelEntry(link.href);
+            try {
+                const { magnetURI, name, size } = magnetUriInfo(link.href);
+                entry.name = name || entry.name;
+                entry.size = size;
+                entry.magnetURI = magnetURI;
+                entry.state = 'ok';
+                GM_setClipboard(magnetURI, 'text');
+                renderPanel();
+            } catch (err) {
+                failEntry(entry, err, link.href);
+            }
+        }, true);
+    }
+
+    function magnetUriInfo(magnetURI) {
+        const params = new URLSearchParams(magnetURI.split('?')[1] || '');
+        const name = params.get('dn') || '';
+        const xl = params.get('xl');
+        const size = xl ? parseInt(xl, 10) || 0 : 0;
+        return { magnetURI, name, size };
     }
 
     function downloadTorrentViaGM(url) {

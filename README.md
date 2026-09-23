@@ -5,6 +5,9 @@ sur "Télécharger" récupère le vrai `.torrent` en arrière-plan, en extrait l
 complet (avec l'URL de tracker) et le copie automatiquement dans le presse-papiers,
 sans télécharger le fichier `.torrent` lui-même.
 
+Sur **FitGirl Repacks**, le lien magnet de la page est déjà complet : un clic dessus
+le copie directement dans le presse-papiers, sans ouvrir de client torrent.
+
 ## Pourquoi
 
 Un magnet "brut" (juste l'infohash, sans URL de tracker) ne trouve jamais de pairs
@@ -46,6 +49,7 @@ côté navigateur, sans dépendance externe (parsing bencode + SHA-1 natif).
 - C411 (`c411.org`)
 - Tr4ker (`tr4ker.net`)
 - V3X (`v3x.club`)
+- FitGirl Repacks (`fitgirl-repacks.site`), copie du magnet déjà présent sur la page
 
 ## Licence
 
