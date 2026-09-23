@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         Tracker Magnet Auto-Copy (C411 / Tr4ker / V3X / FitGirl)
 // @namespace    unit3d-magnet-copy
-// @version      1.1.0
+// @version      1.1.1
 // @description  Sur C411, Tr4ker et V3X : au clic sur "Télécharger", récupère le vrai .torrent (avec tracker/passkey), en extrait le magnet complet et le copie automatiquement dans le presse-papiers, SANS télécharger le fichier .torrent lui-même par défaut (plus de boîte de dialogue "Enregistrer sous" à chaque clic). Sur FitGirl Repacks : copie directement le lien magnet déjà présent sur la page (pas d'extraction nécessaire). Panneau flottant pour copier plusieurs magnets d'affilée (season packs), avec bouton optionnel pour envoyer un magnet à AllDebrid (jamais automatique) et bouton pour télécharger quand même le .torrent réel (utile au-delà de la limite ~100 Go d'AllDebrid, signalée dans le panneau).
 // @match        *://*.c411.org/*
 // @match        *://*.tr4ker.net/*
 // @match        *://*.v3x.club/*
 // @match        *://*.fitgirl-repacks.site/*
+// @updateURL    https://raw.githubusercontent.com/dydy13014/unit3d-magnet-copy/main/unit3d-magnet-copy.user.js
+// @downloadURL  https://raw.githubusercontent.com/dydy13014/unit3d-magnet-copy/main/unit3d-magnet-copy.user.js
 // @run-at       document-start
 // @grant        unsafeWindow
 // @grant        GM_setClipboard

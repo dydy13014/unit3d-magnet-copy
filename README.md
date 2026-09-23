@@ -40,9 +40,14 @@ côté navigateur, sans dépendance externe (parsing bencode + SHA-1 natif).
 
 1. Installe l'extension [Tampermonkey](https://www.tampermonkey.net/) ou
    [Violentmonkey](https://violentmonkey.github.io/)
-2. Télécharge [`unit3d-magnet-copy.user.js`](unit3d-magnet-copy.user.js)
-3. Ouvre le fichier téléchargé (ou importe-le depuis le tableau de bord de
-   l'extension) : l'installation est proposée automatiquement
+2. Ouvre ce lien : [installer le script](https://raw.githubusercontent.com/dydy13014/unit3d-magnet-copy/main/unit3d-magnet-copy.user.js).
+   L'extension propose l'installation automatiquement
+3. Les mises à jour arrivent ensuite toutes seules (l'extension vérifie ce
+   même lien)
+
+> Si tu as installé une version antérieure à la 1.1.1 à partir d'un fichier
+> téléchargé, rouvre le lien ci-dessus une fois pour activer les mises à jour
+> automatiques.
 
 ## Sites supportés
 
