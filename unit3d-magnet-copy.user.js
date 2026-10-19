@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tracker Magnet Auto-Copy (C411 / Tr4ker / V3X / FitGirl)
 // @namespace    unit3d-magnet-copy
-// @version      1.1.1
+// @version      1.1.2
 // @description  Sur C411, Tr4ker et V3X : au clic sur "Télécharger", récupère le vrai .torrent (avec tracker/passkey), en extrait le magnet complet et le copie automatiquement dans le presse-papiers, SANS télécharger le fichier .torrent lui-même par défaut (plus de boîte de dialogue "Enregistrer sous" à chaque clic). Sur FitGirl Repacks : copie directement le lien magnet déjà présent sur la page (pas d'extraction nécessaire). Panneau flottant pour copier plusieurs magnets d'affilée (season packs), avec bouton optionnel pour envoyer un magnet à AllDebrid (jamais automatique) et bouton pour télécharger quand même le .torrent réel (utile au-delà de la limite ~100 Go d'AllDebrid, signalée dans le panneau).
 // @match        *://*.c411.org/*
 // @match        *://*.tr4ker.net/*
@@ -231,11 +231,30 @@
     }
 
     function failEntry(entry, err, url) {
-        console.error('[magnet-copy]', url, err);
+        // Do not log the download URL: private trackers may include a passkey in it.
+        console.error('[magnet-copy] Échec du traitement; consulte le panneau pour le détail.');
         entry.state = 'error';
         entry.name = entry.name || urlBasename(url);
-        entry.error = err && err.message ? err.message : String(err);
+        entry.error = explainError(err);
         renderPanel();
+    }
+
+    function explainError(err) {
+        const message = err && err.message ? err.message : String(err);
+        const status = message.match(/HTTP (\d{3})/i);
+        if (status) {
+            const code = Number(status[1]);
+            if (code === 401 || code === 403) return 'Accès refusé (HTTP ' + code + '). Vérifie que tu es connecté au tracker.';
+            if (code === 404) return 'Torrent introuvable (HTTP 404). Le lien a peut-être expiré ou le torrent a été retiré.';
+            if (code === 429) return 'Trop de requêtes (HTTP 429). Attends un peu avant de réessayer.';
+            if (code >= 500) return 'Erreur du tracker (HTTP ' + code + '). Réessaie plus tard.';
+            return 'Le tracker a répondu HTTP ' + code + '.';
+        }
+        if (/erreur réseau/i.test(message)) return 'Échec réseau. Vérifie ta connexion et que le tracker est accessible.';
+        if (/bencode invalide|fichier \.torrent invalide|dictionnaire "info"|chaîne tronquée|liste non terminée|dictionnaire non terminé/i.test(message)) {
+            return 'Le tracker n’a pas renvoyé un .torrent valide. Vérifie ta connexion au site et réessaie.';
+        }
+        return message;
     }
 
     function urlBasename(url) {
@@ -422,7 +441,11 @@
           #magnet-copy-panel .mcp-header {
             display:flex; justify-content:space-between; align-items:center;
             padding:8px 10px; border-bottom:1px solid #333; font-weight:bold; flex:none;
+            cursor:grab; user-select:none; touch-action:none;
           }
+          #magnet-copy-panel .mcp-header:active { cursor:grabbing; }
+          #magnet-copy-panel.mcp-collapsed .mcp-list,
+          #magnet-copy-panel.mcp-collapsed .mcp-copyall { display:none; }
           #magnet-copy-panel .mcp-header button {
             background:none; border:none; color:#aaa; cursor:pointer; font-size:16px; line-height:1; padding:0 2px;
           }
@@ -471,7 +494,9 @@
           <div class="mcp-header">
             <span>🧲 Magnets extraits</span>
             <span class="mcp-header-btns">
+              <button type="button" class="mcp-open-ad" title="Ouvrir mes magnets sur AllDebrid" aria-label="Ouvrir mes magnets sur AllDebrid"><img src="https://cdn.brandfetch.io/id2efaWc0L/w/160/h/48/theme/dark/logo.png?c=1bxid64Mup7aczewSAYMX" alt="AllDebrid" style="width:64px;height:20px;object-fit:contain"></button>
               <button type="button" class="mcp-key" title="Changer la clé API AllDebrid">🔑</button>
+              <button type="button" class="mcp-collapse" title="Replier le panneau" aria-expanded="true">−</button>
               <button type="button" class="mcp-clear" title="Vider la liste">✕</button>
             </span>
           </div>
@@ -482,6 +507,15 @@
             panelEntries = [];
             el.hidden = true;
         });
+        el.querySelector('.mcp-collapse').addEventListener('click', () => {
+            setPanelCollapsed(el, !el.classList.contains('mcp-collapsed'));
+        });
+        el.querySelector('.mcp-open-ad').addEventListener('click', () => {
+            window.open('https://alldebrid.com/magnets/', '_blank', 'noopener');
+        });
+        el.querySelector('.mcp-open-ad img').addEventListener('error', evt => {
+            evt.currentTarget.replaceWith(document.createTextNode('AllDebrid'));
+        });
         el.querySelector('.mcp-key').addEventListener('click', () => {
             GM_setValue('alldebridApiKey', '');
             getAllDebridApiKey();
@@ -491,7 +525,61 @@
             if (all.length) GM_setClipboard(all.join('\n'), 'text');
         });
         (document.body || document.documentElement).appendChild(el);
+        setPanelCollapsed(el, !!GM_getValue('panelCollapsed', false));
+        restorePanelPosition(el);
+        makePanelDraggable(el);
         return el;
+    }
+
+    function setPanelCollapsed(el, collapsed) {
+        el.classList.toggle('mcp-collapsed', collapsed);
+        const button = el.querySelector('.mcp-collapse');
+        if (button) {
+            button.textContent = collapsed ? '+' : '−';
+            button.title = collapsed ? 'Déplier le panneau' : 'Replier le panneau';
+            button.setAttribute('aria-expanded', String(!collapsed));
+        }
+        GM_setValue('panelCollapsed', collapsed);
+    }
+
+    function restorePanelPosition(el) {
+        const position = GM_getValue('panelPosition', null);
+        if (!position || !Number.isFinite(position.left) || !Number.isFinite(position.top)) return;
+        el.style.left = Math.max(0, Math.min(position.left, window.innerWidth - el.offsetWidth)) + 'px';
+        el.style.top = Math.max(0, Math.min(position.top, window.innerHeight - el.offsetHeight)) + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+    }
+
+    function makePanelDraggable(el) {
+        const header = el.querySelector('.mcp-header');
+        let drag = null;
+        header.addEventListener('pointerdown', evt => {
+            if (evt.target.closest('button')) return;
+            const rect = el.getBoundingClientRect();
+            drag = { x: evt.clientX, y: evt.clientY, left: rect.left, top: rect.top };
+            el.style.left = rect.left + 'px';
+            el.style.top = rect.top + 'px';
+            el.style.right = 'auto';
+            el.style.bottom = 'auto';
+            header.setPointerCapture(evt.pointerId);
+            evt.preventDefault();
+        });
+        header.addEventListener('pointermove', evt => {
+            if (!drag) return;
+            const left = Math.max(0, Math.min(drag.left + evt.clientX - drag.x, window.innerWidth - el.offsetWidth));
+            const top = Math.max(0, Math.min(drag.top + evt.clientY - drag.y, window.innerHeight - el.offsetHeight));
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+        });
+        const finish = () => {
+            if (!drag) return;
+            drag = null;
+            const rect = el.getBoundingClientRect();
+            GM_setValue('panelPosition', { left: rect.left, top: rect.top });
+        };
+        header.addEventListener('pointerup', finish);
+        header.addEventListener('pointercancel', finish);
     }
 
     function renderPanel() {
@@ -551,6 +639,12 @@
             }
             list.appendChild(row);
         });
+        if (el.style.left && el.style.top) {
+            const left = Math.max(0, Math.min(parseFloat(el.style.left), window.innerWidth - el.offsetWidth));
+            const top = Math.max(0, Math.min(parseFloat(el.style.top), window.innerHeight - el.offsetHeight));
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+        }
         el.querySelector('.mcp-copyall').disabled = !panelEntries.some(e => e.state === 'ok');
 
         const last = list.lastElementChild;
@@ -587,9 +681,12 @@
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method: 'POST',
-                url: 'https://api.alldebrid.com/v4/magnet/upload?agent=unit3d-magnet-copy&apikey=' + encodeURIComponent(apiKey),
+                url: 'https://api.alldebrid.com/v4/magnet/upload?agent=unit3d-magnet-copy',
                 data: 'magnets[]=' + encodeURIComponent(magnetURI),
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Authorization': 'Bearer ' + apiKey,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
                 onload: res => {
                     let data;
                     try {
